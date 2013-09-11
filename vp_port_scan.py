@@ -4,7 +4,10 @@
 
 import optparse
 import socket
+from threading import *
 
+
+screenLock = Semaphore(value=1)
 
 def connScan(tgtHost, tgtPort):
     tgtPort = int(tgtPort)
@@ -13,16 +16,24 @@ def connScan(tgtHost, tgtPort):
         connSkt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connSkt.connect((tgtHost,tgtPort))
         connSkt.send(data)
-        results = connSkt.recv(1024)
-        print "[+] %d tcp open" %tgtPort
-        print results
-        connSkt.close()
-        
+        results = connSkt.recv(140)
+        screenLock.acquire()
+        print "[+] %d tcp open **Yay!! :-P " %tgtPort
+        if results:    
+            print "!!!!Banner grabbed, bitches!!!!"
+            print results + "\n"
+        else:
+            pass
     except:
-        print "[-] %d tcp closed" %tgtPort
+        screenLock.acquire()
+        print "[-] %d tcp closed **Shucks :-( " %tgtPort
+        
+    finally:
+        screenLock.release()
+        connSkt.close()
 
 def portScan(tgtHost,tgtPorts):
-    print 'Now attempting to resolve DNS for %s' %tgtHost
+    print '[+] Now attempting to resolve DNS for %s' %tgtHost
     try:
         tgtIP = socket.gethostbyname(tgtHost)
     except:
@@ -35,13 +46,18 @@ def portScan(tgtHost,tgtPorts):
     except:
         print '\n[+] Resolve results for: ' + tgtIP
         
-    print 'Now executing TCP port scan!'
+    print '[+] Now executing TCP port scan!'
+    
+    socket.setdefaulttimeout(3)
     for tgtPort in tgtPorts:
-        print 'Probing TCP port %s' %tgtPort
-        try:
-            connScan(tgtHost,tgtPort)
-        except:
-            print 'Unable to run connScan function'
+        print '[+] Probing TCP port %s' %tgtPort
+        t = Thread(target = connScan, args = (tgtHost,tgtPort))
+        t.start()
+        
+        #try:
+        #    connScan(tgtHost,tgtPort)
+        #except:
+        #    print 'Unable to run connScan function'
     
 
 def main():
@@ -61,7 +77,6 @@ def main():
         
     else:
         portScan(tgtHost, tgtPorts)
-        print tgtHost + ":" + str(tgtPorts)
         
 if __name__ == '__main__':
     main()
